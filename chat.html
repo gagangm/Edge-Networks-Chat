@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat Box</title>
+  <link rel="stylesheet" href="style/style.css">
+</head>
+<body class="body-box">
+  <header class="head">
+    <h2>Chat Box</h2>
+  </header>  
+  <!-- <div id="app">
+    <div class="welcome-box" v-if="state == 0">
+      <h3 class="username-text">Welcome to Chat-Box!</h3>
+      <h3 class="username-text">Hello {{ username }}</h3>
+      <form @submit.prevent="setUsername">
+        <input type="text" placeholder="Username..." v-model:value="username" class="username-input"/>
+        <button type="submit" value="Join" class="join-btn">Join</button>
+      </form>
+    </div>
+    
+    <small v-if="typing">{{message.user}} is typing...</small>
+    <div class="chat" v-if="state == 1">
+      <ul id="chatbox">
+        <li v-for="message in messages" class="list-tem">
+          <span :class="{'float-right':message.type === 0}"><b>{{ message.user }}:</b> {{ message.message }}</span>
+        </li>
+      </ul>
+      <form @submit.prevent="sendMessage" class="msg-form">
+        <input type="text" placeholder="Message..." v-model:value="message" class="msg-box"/>
+        <button type="submit" value="Send" class="send-btn">Send</button>
+      </form>
+    </div>
+  </div> -->
+  <div id="app">
+    <div class="welcome-box">
+        <div v-if="ready">
+            <h3 class="username-text">{{name}}</h3>
+            <p v-for="item in info">
+                <small>{{item.name}} {{item.type}}</small>
+            </p>
+        </div>
+        <form @submit.prevent="setName" class="mt-4" v-else>
+            <h3 class="username-text">Welcome to Chat-Box!</h3>
+            <h3 class="username-text">Hello {{ name }}</h3>
+            <label>Please choose your username...</label>
+            <input type="text" class="username-input" v-model="name" placeholder="Type Here">
+            <input type="submit" value="Add" class="join-btn">
+        </form>
+        <div class="card bg-info" v-if="ready">
+            <div class="card-header text-white">
+                <span class="float-right">{{connectionCount}} connections</span>
+            </div>
+
+            <ul class="list-group list-group-flush text-right" id="chatbox">
+                <small v-if="typing" class="text-white">
+                    <i>{{typing}} is typing</i>
+                </small>
+                <li class="list-group-item" v-for="message in messages">
+                    <span :class="{'float-left':(message.type===1)}">
+                        {{message.message}}
+                        <small>:{{message.by}}</small>
+                    </span>
+                </li>
+            </ul>
+
+            <div class="card-body">
+                <form @submit.prevent="send">
+                    <div>
+                        <input type="text" class="form-control" v-model="newmessage" placeholder="Type Here">
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+  </div>
+  <footer class="foot">
+    <div>Made by <a href="http://gagangm.com">Gagan GM</a></div>
+  </footer>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB"
+  crossorigin="anonymous">
+  <script>
+        var socket = io();
+        let app = new Vue({
+            el: '#app',
+            data: {
+                newmessage: null,
+                messages: [],
+                typing: false,
+                online: [],
+                name: null,
+                ready: false,
+                info: [],
+                connectionCount: 0
+            },
+            methods: {
+                send() {
+                    socket.emit('chat-message', { message: this.newmessage, user: this.name })
+                    this.messages.push({ message: this.newmessage, type: 0, by: 'Me' })
+                    app.$nextTick(function () {
+                        var messageBox = document.getElementById('chatbox');
+                        messageBox.scrollTop = messageBox.scrollHeight;
+                    });
+                    this.newmessage = null
+                },
+                isTyping() {
+                    socket.emit('typing', this.name)
+                },
+                setName() {
+                    socket.emit('joined', this.name)
+                    if(this.name == null) {
+                      alert('Please enter your username.')
+                      this.ready = false
+                    } else {
+                      this.ready = true
+                    }
+                }
+            },
+            mounted() {
+                window.onbeforeunload = () => {
+                    socket.emit('leave', this.name)
+                }
+                socket.on('noOfConnections', (count) => {
+                    this.connectionCount = count
+                })
+            },
+            watch: {
+                newmessage(value) {
+                    value ? socket.emit('typing', this.name) : socket.emit('stoptyping')
+                }
+            },
+            created() {
+                socket.on('chat-message', (data) => {
+                    this.messages.push({ message: data.message, type: 1, by: data.user })
+                    app.$nextTick(function () {
+                        var messageBox = document.getElementById('chatbox');
+                        messageBox.scrollTop = messageBox.scrollHeight;
+                    });
+                    this.typing = false
+                })
+                socket.on('typing', (data) => {
+                    console.log(data)
+                    this.typing = data
+                })
+                socket.on('stoptyping', () => {
+                    this.typing = false
+                })
+                socket.on('leave', (name) => {
+                    this.online.splice(this.online.indexOf(name))
+                    this.info.push({ name: name, type: 'Left' })
+                    setTimeout(() => {
+                        this.info = []
+                    }, 5000);
+                })
+                socket.on('joined', (name) => {
+                    this.online.push(name)
+                    this.info.push({ name: name, type: 'Joined' })
+                    setTimeout(() => {
+                        this.info = []
+                    }, 5000);
+                })
+            }
+        });
+  </script>
+</body>
+</html>
